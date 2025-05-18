@@ -1,3 +1,9 @@
+/**
+ * Resolução do exercício 1 (questão 1.a usando fifo);
+ * Client side
+ *
+ * Authors: Gabriel Craco, Leonardo Jun-Ity, Alan e João Marcos
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,10 +14,11 @@
 
 #define SERVER_FIFO "/tmp/addition_fifo_server"
 
-int main() {
+int main()
+{
     char client_fifo[64];
     char buf[4096];
-    char input[4000];  // buffer para mensagem do usuário
+    char input[4000]; // buffer para mensagem do usuário
     int fd_server, fd_client;
 
     // Cria nome único para FIFO do cliente
@@ -22,19 +29,22 @@ int main() {
 
     // Abre FIFO do servidor para escrita
     fd_server = open(SERVER_FIFO, O_WRONLY);
-    if (fd_server == -1) {
+    if (fd_server == -1)
+    {
         perror("Erro ao abrir FIFO do servidor");
         unlink(client_fifo);
         return 1;
     }
 
-    while (1) {
+    while (1)
+    {
         printf("Digite a mensagem para o servidor (ou 'sair'): ");
         fflush(stdout);
         fgets(input, sizeof(input), stdin);
         input[strcspn(input, "\n")] = '\0';
 
-        if (strcmp(input, "sair") == 0) break;
+        if (strcmp(input, "sair") == 0)
+            break;
 
         // Monta mensagem: "<fifo_cliente>,<mensagem>"
         sprintf(buf, "%s,%s\n", client_fifo, input);
@@ -42,7 +52,8 @@ int main() {
 
         // Abre FIFO do cliente para leitura
         fd_client = open(client_fifo, O_RDONLY);
-        if (fd_client == -1) {
+        if (fd_client == -1)
+        {
             perror("Erro ao abrir FIFO do cliente");
             break;
         }
@@ -59,6 +70,3 @@ int main() {
     printf("Cliente encerrado.\n");
     return 0;
 }
-
-
-

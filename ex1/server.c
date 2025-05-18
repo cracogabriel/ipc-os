@@ -1,3 +1,10 @@
+/**
+ * Resolução do exercício 1 (questão 1.a usando fifo);
+ * Server side
+ *
+ * Authors: Gabriel Craco, Leonardo Jun-Ity, Alan e João Marcos
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -119,7 +126,7 @@ int main()
         offset += snprintf(buf + offset, sizeof(buf) - offset, "Número de vogais: %d\n", vogais);
         offset += snprintf(buf + offset, sizeof(buf) - offset, "Número de consoantes: %d\n", consoantes);
         offset += snprintf(buf + offset, sizeof(buf) - offset, "Número de espaços: %d\n", spaces);
-        printf("%s\n",buf);
+        printf("%s\n", buf);
 
         write(fd_client, buf, strlen(buf));
         close(fd_client);

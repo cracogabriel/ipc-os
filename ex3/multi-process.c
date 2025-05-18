@@ -1,3 +1,9 @@
+/**
+ * Resolução do exercício 3 (questão 3);
+ *
+ * Authors: Gabriel Craco, Leonardo Jun-Ity, Alan e João Marcos
+ */
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -6,7 +12,8 @@
 #include <sys/shm.h>
 #include <sys/wait.h>
 
-#define MAX 1024 // tamanho máximo do vetor
+#define MAX 1024              // tamanho máximo do vetor
+#define CHILD_FINISHED_CODE 1 // Código de sinalização que o filho acabou
 
 int main()
 {
@@ -30,27 +37,44 @@ int main()
         return 1;
     }
 
-    // Criação da memória compartilhada para os dois vetores e o vetor resultado
-    key_t key = IPC_PRIVATE;
-    int shmid = shmget(key, 3 * numElementos * sizeof(int), IPC_CREAT | 0666);
-    if (shmid < 0)
+    // Criação da memória compartilhada de dados para os dois vetores e o vetor resultado
+    key_t key_dados = IPC_PRIVATE;
+    int shmid_dados = shmget(key_dados, 3 * numElementos * sizeof(int), IPC_CREAT | 0666);
+    if (shmid_dados < 0)
     {
         perror("Erro ao criar memória compartilhada");
         exit(1);
     }
 
-    // Pai anexa à memória compartilhada
-    int *memoria = (int *)shmat(shmid, NULL, 0);
-    if (memoria == (int *)-1)
+    // Pai anexa à memória de dados compartilhada
+    int *memoria_dados = (int *)shmat(shmid_dados, NULL, 0);
+    if (memoria_dados == (int *)-1)
     {
-        perror("Erro ao anexar memória compartilhada no pai");
+        perror("Erro ao anexar memória de dados compartilhada no pai");
+        exit(1);
+    }
+
+    // Criação da memória compartilhada de sincronização para os dois vetores e o vetor resultado
+    key_t key_sinc = IPC_PRIVATE;
+    int shmid_sinc = shmget(key_sinc, numFilhos * sizeof(int), IPC_CREAT | 0666);
+    if (shmid_sinc < 0)
+    {
+        perror("Erro ao criar memória de sincronização compartilhada");
+        exit(1);
+    }
+
+    // Pai anexa à memória de sincronização compartilhada
+    int *memoria_sinc = (int *)shmat(shmid_sinc, NULL, 0);
+    if (memoria_sinc == (int *)-1)
+    {
+        perror("Erro ao anexar memória de sincronização compartilhada no pai");
         exit(1);
     }
 
     // Vetores vetor1 e vetor2 estão na memória compartilhada
-    int *vetor1 = memoria;
-    int *vetor2 = memoria + numElementos;
-    int *resultado = memoria + (2 * numElementos);
+    int *vetor1 = memoria_dados;
+    int *vetor2 = memoria_dados + numElementos;
+    int *resultado = memoria_dados + (2 * numElementos);
 
     // Inicializando os vetores vetor1 e vetor2 com valores
     for (int i = 0; i < numElementos; i++)
@@ -93,10 +117,13 @@ int main()
                 resultado[j] = vetor1[j] + vetor2[j];
                 printf("Filho %d (PID %d) somou: vetor1[%d] + vetor2[%d] = %d\n", i, getpid(), j, j, resultado[j]);
             }
-            
-            close(mypipe[0]); // Fecha a leitura no pipe
-            shmdt(memoria);   // Desanexa a memória compartilhada do filho
-            exit(0);          // Finaliza o processo filho
+
+            memoria_sinc[i] = CHILD_FINISHED_CODE; // Sinaliza na memória que acabou
+
+            close(mypipe[0]);     // Fecha a leitura no pipe
+            shmdt(memoria_dados); // Desanexa a memória compartilhada de dados do filho
+            shmdt(memoria_sinc);  // Desanexa a memória compartilhada de sincronização do filho
+            exit(0);              // Finaliza o processo filho
         }
     }
 
@@ -115,26 +142,44 @@ int main()
     }
 
     // Espera os filhos terminarem
-    for (int i = 0; i < numFilhos; i++)
+    while (1)
     {
-        wait(NULL); // Espera um filho terminar
+        int filhosFinalizados = 0;
+        for (int i = 0; i < numFilhos; i++)
+        {
+
+            if (memoria_sinc[i] == CHILD_FINISHED_CODE)
+                filhosFinalizados++;
+        }
+        if (filhosFinalizados == numFilhos)
+        {
+            printf("Todos os filhos acabaram o calculo. Finalizando espera.\n\n");
+            break; // Se todos os filhos acabaram, finaliza a espera
+        }
+
+        filhosFinalizados = 0;
     }
 
     // Exibe o resultado final
     printf("Resultado final da soma dos vetores:\n");
-    
+
     printf("[");
     for (int i = 0; i < numElementos; i++)
     {
-        printf("%d ", resultado[i]);
+        printf("%d", resultado[i]);
+        if (numElementos - 1 == i)
+            printf("]");
+        else
+            printf(", ");
     }
-    printf("]");
 
     printf("\n");
 
     // Liberação de memória compartilhada
-    shmdt(memoria);                // pai se desconecta
-    shmctl(shmid, IPC_RMID, NULL); // remove a memória compartilhada
+    shmdt(memoria_dados);                // pai se desconecta
+    shmdt(memoria_sinc);                 // pai se desconecta
+    shmctl(shmid_dados, IPC_RMID, NULL); // remove a memória de dados compartilhada
+    shmctl(shmid_sinc, IPC_RMID, NULL);  // remove a memória de sincronização compartilhada
 
     printf("Pai finalizou.\n");
     return 0;
